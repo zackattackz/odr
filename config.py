@@ -5,6 +5,7 @@ from runner import ContainerRunner
 
 default_cfg = {
     "aliases": {"16": "16.0", "17": "17.0"},
+    "container_program": "podman",
     "extra_env": [["PGUSER", "$USER"]],
     "image_name": "odr",
     "workdir_path": "/root/workdir",
