@@ -15,50 +15,36 @@ default_cfg = {
 }
 
 
-def with_default_config_path(cfg):
-    """Set config path if not already set"""
-    res = {**cfg}
-    if "config_path" in res:
-        return res
+def get_default_file_path():
+    """Get default config file path"""
     xdg_config_home = os.environ.get("XDG_CONFIG_HOME")
     if xdg_config_home:
-        res["config_path"] = os.path.join(xdg_config_home, "odr.json")
+        res = os.path.join(xdg_config_home, "odr.json")
     else:
-        res["config_path"] = os.path.join(
-            os.path.expanduser("~"), ".config", "odr.conf"
+        res = os.path.join(
+            os.path.expanduser("~"), ".config", "odr.json"
         )
     return res
 
 
-def with_config_file_dict(cfg, cfg_file_dict):
-    """Set items that aren't already set from config file. Merge lists"""
-    res = {**cfg}
-    for k, v in cfg_file_dict.items():
+def merge_dicts(dict_one, dict_two):
+    """Set items from dict_two into dict_one. Merges lists. Returns new dict"""
+    res = {**dict_one}
+    for k, v in dict_two.items():
         if k in res and isinstance(res[k], list):
             res[k] = [*res[k], *v]
-        elif k not in res:
+        else:
             res[k] = v
     return res
 
 
-def with_config_file(cfg):
-    """Set items from config file if it exists"""
+def load_config_file(file_path):
+    """Parse contents of config file as a dict, return empty dict if file doesn't exist"""
     try:
-        with open(cfg["config_path"], "r") as f:
-            cfg_file_dict = json.load(f)
-            return with_config_file_dict(cfg, cfg_file_dict)
+        with open(file_path, "r") as f:
+            return json.load(f)
     except FileNotFoundError:
-        return cfg
-
-
-def with_defaults(cfg):
-    """Set default values for items that don't exist"""
-    res = {**cfg}
-    for k, v in default_cfg.items():
-        if k not in res:
-            res[k] = v
-    return res
-
+        return {}
 
 def with_aliased_version(cfg):
     """Set version to its alias if it exists"""
@@ -114,15 +100,23 @@ def filter_container_runner_params(cfg):
     runner_params = set(signature(ContainerRunner).parameters.keys())
     return {k: v for k, v in cfg.items() if k in runner_params}
 
-
-def init_config(args_dict):
-    cfg = with_default_config_path(args_dict)
-    cfg = with_config_file(cfg)
-    cfg = with_defaults(cfg)
+def prepare_config(cfg):
+    """Apply all config preparation functions"""
     cfg = with_aliased_version(cfg)
     cfg = with_host_paths(cfg)
     cfg = with_host_src_path(cfg)
     cfg = with_expanded_extra_volumes(cfg)
     cfg = with_expanded_extra_env(cfg)
     cfg = filter_container_runner_params(cfg)
+    return cfg
+
+def merge_configs(args_dict, file_path, default_cfg):
+    """Perpare config from args, config file and defaults. Preferences are in that order"""
+    file_cfg = load_config_file(file_path)
+    cfg = merge_dicts(default_cfg, file_cfg)
+    cfg = merge_dicts(cfg, args_dict)
+    if cfg.get("verbose"):
+        print("Unprepared config:")
+        print(cfg)
+    cfg = prepare_config(cfg)
     return cfg

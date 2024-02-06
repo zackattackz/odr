@@ -1,6 +1,6 @@
 import argparse
+import config
 
-from config import init_config
 from runner import ContainerRunner
 
 
@@ -78,12 +78,13 @@ def main():
     if "extra_env" in args:
         args["extra_env"] = parse_extra_env(args["extra_env"])
 
-    cfg = init_config(args)
+    file_path = args.get("config", config.get_default_file_path())
+    cfg = config.merge_configs(args, file_path, config.default_cfg)
 
     runner = ContainerRunner(**cfg)
 
     if cfg.get("verbose"):
-        print("Final config:")
+        print("Prepared config:")
         print(cfg)
         print("Running the following command:")
         print(" ".join(runner.program))
