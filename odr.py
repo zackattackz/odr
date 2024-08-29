@@ -1,96 +1,56 @@
-import argparse
-import config
+import os
+import sys
 
-from runner import ContainerRunner
-
-
-def clean_args(args):
-    """Return only non-None args"""
-    return {k: v for k, v in args.items() if v is not None}
+from args import parse_argv
 
 
-def parse_extra_volumes(extra_volumes):
-    """Split extra_volumes on ':'"""
-    return [v_str.split(":") for v_str in extra_volumes]
+def get_rc_filename():
+    """
+    Get default config file path
+
+    In order of precedence: $ODR_CONFIG > $XDG_CONFIG_HOME/odrrc > ~/.config/odrrc > ~/.odrrc
+    """
+    from_env = os.environ.get("ODR_CONFIG")
+    if from_env:
+        return from_env
+    xdg_config_home = os.environ.get("XDG_CONFIG_HOME")
+    if xdg_config_home:
+        res = os.path.join(xdg_config_home, "odrrc")
+    else:
+        res = os.path.join(os.path.expanduser("~"), ".config", "odrrc")
+    if os.path.exists(res):
+        return res
+    res = os.path.join(os.path.expanduser("~"), ".odrrc")
+    if not os.path.exists(res):
+        return None
+    return res
 
 
-def parse_extra_env(extra_env):
-    """Split extra_env on '='"""
-    return [v_str.split("=") for v_str in extra_env]
+def get_exec_args(args):
+    """Format args into an list to pass to execvp"""
+    return [
+        args.container_command,
+        "run",
+        *args.passthrough,
+        *args.volume_args,
+        *args.port_args,
+        *args.env_args,
+        args.workdir_arg,
+        args.remove_arg,
+        args.interactive_arg,
+        args.image_tag,
+        *args.command,
+    ]
 
 
-def main():
-    parser = argparse.ArgumentParser(prog="odr", description="CLI program for odr")
-    parser.add_argument("version", type=str, help="Version string")
-    parser.add_argument(
-        "-a",
-        "--extra-runtime-args",
-        nargs="+",
-        help="Extra args to pass to container runner",
-    )
-    parser.add_argument(
-        "-c", "--config", dest="config_path", type=str, help="Path to config file"
-    )
-    parser.add_argument(
-        "-p",
-        "--container-program",
-        type=str,
-        help="Container runner program to use (e.g. podman, docker)",
-    )
-    parser.add_argument(
-        "-f",
-        "--fileshare",
-        dest="host_fileshare_path",
-        type=str,
-        help="Path to Odoo fileshare on host",
-    )
-    parser.add_argument(
-        "-s",
-        "--src",
-        dest="host_fileshare_path",
-        type=str,
-        help="Path to Odoo fileshare on host",
-    )
-    parser.add_argument(
-        "-u",
-        "--user",
-        dest="host_user_src_path",
-        type=str,
-        help="Path to user modules directory on host",
-    )
-    parser.add_argument(
-        "-v",
-        "--extra-volumes",
-        nargs="+",
-        help="Extra volumes of form host_path:guest_path to mount in container",
-    )
-    parser.add_argument(
-        "-d", "--verbose", action="store_true", help="Enable verbose output"
-    )
-    parser.add_argument(
-        "run_args", nargs=argparse.REMAINDER, help="Command to run in container"
-    )
-
-    args = vars(parser.parse_args())
-    args = clean_args(args)
-    if "extra_volumes" in args:
-        args["extra_volumes"] = parse_extra_volumes(args["extra_volumes"])
-    if "extra_env" in args:
-        args["extra_env"] = parse_extra_env(args["extra_env"])
-
-    file_path = args.get("config", config.get_default_file_path())
-    cfg = config.merge_configs(args, file_path, config.default_cfg)
-
-    runner = ContainerRunner(**cfg)
-
-    if cfg.get("verbose"):
-        print("Prepared config:")
-        print(cfg)
-        print("Running the following command:")
-        print(" ".join(runner.program))
-
-    runner.run()
+def main(argv):
+    rc_filename = get_rc_filename()
+    args = parse_argv(argv, rc_filename)
+    exec_args = get_exec_args(args)
+    if args.verbose:
+        print(" ".join(exec_args))
+    os.execvp(args.container_command, exec_args)
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])

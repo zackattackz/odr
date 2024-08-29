@@ -1,4 +1,4 @@
-FROM ubuntu:22.04
+FROM debian:bullseye-slim
 
 ENV LANG C.UTF-8
 
@@ -65,6 +65,13 @@ python3-phonenumbers \
 python3-pyldap \
 python3-slugify \
 python3-watchdog \
-python3-xlwt
+python3-xlwt \
+python3-pip
+
+RUN pip install debugpy
+
+# support for multilingual fonts
 
 RUN npm install -g rtlcss
+
+# EXPOSE 8069 8569
