@@ -153,6 +153,19 @@ def get_parser():
         help="PGPASSWORD env variable",
     )
     parser.add_argument(
+        "--pg-socket",
+        type=str,
+        default="/var/run/postgresql",
+        help="path to pg socket directory, for mounting into container",
+    )
+    parser.add_argument(
+        "-t",
+        "--pg-use-socket",
+        action="store_true",
+        default=False,
+        help="pass to mount and use --pg-socket in container",
+    )
+    parser.add_argument(
         "--server-port",
         type=str,
         default="8069",
@@ -248,15 +261,21 @@ def parse_argv(argv, rc_filename=None):
     args.user_volume_args = optional_arg(
         args.host_user_src, ["-v", f"{args.host_user_src}:{args.guest_user_src}"]
     )
+    args.pg_socket_volume_args = optional_arg(
+        args.pg_use_socket,
+        ["-v", f"{args.pg_socket}:{args.pg_socket}"]
+    )
     args.volume_args = (
-        args.src_volume_args + args.fileshare_volume_args + args.user_volume_args
+        args.src_volume_args + args.fileshare_volume_args + args.user_volume_args + args.pg_socket_volume_args
     )
     # env args
     args.pg_user_args = ["-e", f"PGUSER={args.pg_user}"]
     args.pg_host_args = ["-e", f"PGHOST={args.pg_host}"]
     args.pg_port_args = ["-e", f"PGPORT={args.pg_port}"]
     args.pg_pass_args = optional_arg(args.pg_pass, ["-e", f"PGPASSWORD={args.pg_pass}"])
-    args.env_args = (
-        args.pg_user_args + args.pg_host_args + args.pg_port_args + args.pg_pass_args
-    )
+    args.env_args = list(args.pg_user_args)
+    if not args.pg_use_socket:
+        args.env_args += (
+            args.pg_host_args + args.pg_port_args + args.pg_pass_args
+        )
     return args
