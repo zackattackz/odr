@@ -1,3 +1,0 @@
-#!/bin/bash
-
-/root/src/odoo/odoo-bin $@

@@ -2,15 +2,21 @@ FROM ubuntu:22.04
 
 ENV LANG C.UTF-8
 
-COPY files/odoo /bin/odoo
+RUN useradd odoo
 
-RUN mkdir /root/src
+RUN mkdir -p /home/odoo
+
+RUN chown -R odoo:odoo /home/odoo
 
 RUN apt-get update && \
 DEBIAN_FRONTEND=noninteractive \
 apt-get install -y --no-install-recommends \
 python3 \
+python3-pip \
+python3-venv \
+python3-dev \
 python-is-python3 \
+build-essential \
 fonts-dejavu-core \
 fonts-freefont-ttf \
 fonts-freefont-otf \
@@ -19,46 +25,35 @@ fonts-inconsolata \
 fonts-font-awesome \
 fonts-roboto-unhinted \
 gsfonts \
+libjs-underscore \
+lsb-base \
 postgresql-client \
 xz-utils \
 npm \
 node-less \
 curl \
 wkhtmltopdf \
-libjs-underscore \
-lsb-base \
-python3-babel \
-python3-chardet \
-python3-dateutil \
-python3-decorator \
-python3-docutils \
-python3-freezegun \
-python3-geoip2 \
-python3-pil \
-python3-jinja2 \
-python3-libsass \
-python3-lxml \
-python3-num2words \
-python3-ofxparse \
-python3-passlib \
-python3-polib \
-python3-psutil \
-python3-psycopg2 \
-python3-pydot \
-python3-openssl \
-python3-pypdf2 \
-python3-rjsmin \
-python3-qrcode \
-python3-renderpm \
-python3-reportlab \
-python3-requests \
-python3-stdnum \
-python3-tz \
-python3-vobject \
-python3-werkzeug \
-python3-xlsxwriter \
-python3-xlrd \
-python3-zeep \
-python3-ldap
+libpq-dev \
+libldap2-dev \
+libsasl2-dev
 
-RUN npm install -g rtlcss
+RUN python -m venv /home/odoo/odoo-venv
+
+# TODO: Use below for tagged releases
+# COPY files/requirements.17.0.txt /home/odoo/odoo-requirements.txt
+# Use below in build to generate a locked requirements to update files/requirements.x.txt
+# RUN pip install --no-cache-dir pip-tools
+# RUN pip-compile -o /home/odoo/odoo-requirements.lock.txt --all-extras --dry-run /home/odoo/odoo-requirements.txt
+
+# Get requirements.txt rolling
+RUN curl https://raw.githubusercontent.com/odoo/odoo/17.0/requirements.txt > /home/odoo/odoo-requirements.txt
+
+RUN /home/odoo/odoo-venv/bin/pip install --no-cache-dir debugpy -r /home/odoo/odoo-requirements.txt
+
+# support for multilingual fonts
+RUN npm install -g rtlcss@4.3.0
+
+USER odoo
+
+WORKDIR /home/odoo
+

@@ -1,7 +1,11 @@
 import os
 import sys
 
-from args import parse_argv
+from .args import parse_argv
+
+
+RC_FILENAME_ENV_VAR_NAME = "ODR_CONFIG"
+RC_DEFAULT_FILENAME = "odrrc"
 
 
 def get_rc_filename():
@@ -10,17 +14,17 @@ def get_rc_filename():
 
     In order of precedence: $ODR_CONFIG > $XDG_CONFIG_HOME/odrrc > ~/.config/odrrc > ~/.odrrc
     """
-    from_env = os.environ.get("ODR_CONFIG")
+    from_env = os.environ.get(RC_FILENAME_ENV_VAR_NAME)
     if from_env:
         return from_env
     xdg_config_home = os.environ.get("XDG_CONFIG_HOME")
     if xdg_config_home:
-        res = os.path.join(xdg_config_home, "odrrc")
+        res = os.path.join(xdg_config_home, RC_DEFAULT_FILENAME)
     else:
-        res = os.path.join(os.path.expanduser("~"), ".config", "odrrc")
+        res = os.path.join(os.path.expanduser("~"), ".config", RC_DEFAULT_FILENAME)
     if os.path.exists(res):
         return res
-    res = os.path.join(os.path.expanduser("~"), ".odrrc")
+    res = os.path.join(os.path.expanduser("~"), f".{RC_DEFAULT_FILENAME}")
     if not os.path.exists(res):
         return None
     return res
@@ -31,26 +35,18 @@ def get_exec_args(args):
     return [
         args.container_command,
         "run",
-        *args.passthrough,
-        *args.volume_args,
-        *args.port_args,
-        *args.env_args,
-        args.workdir_arg,
-        args.remove_arg,
-        args.interactive_arg,
+        *args.run_option_args,
         args.image_tag,
         *args.command,
     ]
 
 
-def main(argv):
+def main(argv=None):
+    if not argv:
+        argv = sys.argv[1:]
     rc_filename = get_rc_filename()
     args = parse_argv(argv, rc_filename)
     exec_args = get_exec_args(args)
     if args.verbose:
         print(" ".join(exec_args))
     os.execvp(args.container_command, exec_args)
-
-
-if __name__ == "__main__":
-    main(sys.argv[1:])

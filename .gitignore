@@ -1,2 +1,9 @@
 .direnv/
 __pycache__/
+.vscode/
+build/
+dist/
+*.egg-info/
+*.egg
+*.py[cod]
+.envrc

@@ -1,20 +1,49 @@
 {
-  description = "Dev shell for ocr";
+  description = "Flake providing odoo-container-runner package and dev shell";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-23.11";
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
 
-  outputs = { self, nixpkgs }:
+  outputs =
+    { self, nixpkgs }:
     let
-      supportedSystems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
-      forEachSupportedSystem = f: nixpkgs.lib.genAttrs supportedSystems (system: f {
-        pkgs = import nixpkgs { inherit system; };
-      });
+      supportedSystems = nixpkgs.lib.platforms.unix;
+      forEachSupportedSystem =
+        f:
+        nixpkgs.lib.genAttrs supportedSystems (
+          system: f { pkgs = import nixpkgs { inherit system; }; } system
+        );
+      outputPackages = forEachSupportedSystem (
+        { pkgs }:
+        _: with pkgs.python3Packages; {
+          python3Packages.odoo-container-runner = buildPythonPackage {
+            pname = "odr";
+            version = "0.1.0";
+            pyproject = true;
+            src = ./.;
+            build-system = [ setuptools ];
+            pythonImportsCheck = [ "odr" ];
+            nativeBuildInputs = [ setuptools ];
+          };
+        }
+      );
     in
     {
-      devShells = forEachSupportedSystem ({ pkgs }: {
-        default = pkgs.mkShell {
-          packages = with pkgs; [ python310 python310Packages.black ];
-        };
-      });
+      packages = outputPackages;
+      devShells = forEachSupportedSystem (
+        { pkgs }:
+        system: {
+          default = pkgs.mkShell {
+            packages = with pkgs; [
+              nixfmt-rfc-style
+              python3
+              python3Packages.black
+              python3Packages.pip-tools
+              python3Packages.twine
+              # outputPackages.${system}.python3Packages.odoo-container-runner
+            ];
+            buildInputs = [ pkgs.bashInteractive ];
+          };
+        }
+      );
     };
 }
